@@ -1,0 +1,7 @@
+<div class="sparkline @(Compact ? "compact" : null)">
+    @foreach (var point in Points)
+    {
+        var height = Math.Clamp(point / Max * 100.0, 3, 100);
+        <span class="spark-bar @Accent" style="@($"height:{height}%")"></span>
+    }
+</div>

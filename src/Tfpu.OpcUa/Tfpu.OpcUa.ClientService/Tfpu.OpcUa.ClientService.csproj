@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Tfpu.OpcUa.ClientService-377ca9d7-ea7a-4eea-8b95-c40d1555cd27</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GrpcDotNetNamedPipes" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.8" />
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="1.5.378.145" />
+    <PackageReference Include="protobuf-net.Grpc" Version="1.2.2" />
+	<PackageReference Include="Grpc.Tools" Version="2.81.0" PrivateAssets="All" />
+	<PackageReference Include="Google.Protobuf" Version="3.35.0" />
+	<PackageReference Include="Grpc.Core.Api" Version="2.80.0" />
+	<PackageReference Include="GrpcDotNetNamedPipes" Version="3.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Grpc\Protos\runtime_dashboard.proto" GrpcServices="Server" />
+  </ItemGroup>
+
+</Project>
+

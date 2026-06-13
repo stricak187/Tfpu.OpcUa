@@ -1,0 +1,8 @@
+<MudPaper Class="status-card" Elevation="0">
+    <div class="card-title">@Title</div>
+    <div class="card-value @Accent">@Value</div>
+    @if (!string.IsNullOrWhiteSpace(Sub))
+    {
+        <div class="card-sub">@Sub</div>
+    }
+</MudPaper>

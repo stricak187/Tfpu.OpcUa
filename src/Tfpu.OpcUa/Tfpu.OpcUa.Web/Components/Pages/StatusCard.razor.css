@@ -1,0 +1,23 @@
+﻿.status-card .card-value {
+    background: transparent;
+}
+
+    .status-card .card-value.blue {
+        color: #4d9cff;
+    }
+
+    .status-card .card-value.green {
+        color: #38d07b;
+    }
+
+    .status-card .card-value.amber {
+        color: #f4c430;
+    }
+
+    .status-card .card-value.red {
+        color: #ff5c6c;
+    }
+
+    .status-card .card-value.purple {
+        color: #b077ff;
+    }

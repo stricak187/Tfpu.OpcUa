@@ -1,0 +1,241 @@
+﻿@page "/"
+@page "/dashboard"
+@rendermode InteractiveServer
+
+@using MudBlazor
+@using Tfpu.OpcUa.Contracts.Grpc
+@inject RuntimeDashboard.RuntimeDashboardClient DashboardClient
+@implements IDisposable
+
+<MudContainer MaxWidth="MaxWidth.False" Class="dashboard-shell">
+
+    <MudGrid Spacing="0">
+        <MudItem Class="main">
+            <div class="header mb-3">
+                <div>
+                    <div class="page-title">Dashboard</div>
+                    <div class="page-subtitle">
+                        Live OPC UA client telemetry, event throughput, queue health and M/M/1 processing model.
+                    </div>
+                </div>
+
+                <div class="header-status">
+                    <span>Status:</span>
+                    <span class="status-dot @RuntimeDotClass"></span>
+                    <strong>@(_dashboard?.Status ?? "Unknown")</strong>
+                    <span class="uptime">Uptime: @(_dashboard?.Uptime ?? "-")</span>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3">
+                    @_loadError
+                </MudAlert>
+            }
+
+            <MudPaper Class="command-bar" Elevation="0">
+                <div class="endpoint-block">
+                    <div class="label">Endpoint</div>
+                    <div class="value">@EndpointUrl</div>
+                </div>
+
+                <div class="quick-facts">
+                    <div>
+                        <div class="label">Session</div>
+                        <div class="value">@(_dashboard?.SessionStatus ?? "-")</div>
+                    </div>
+                    <div>
+                        <div class="label">Subscriptions</div>
+                        <div class="value">@(_dashboard?.SubscriptionCount.ToString() ?? "0")</div>
+                    </div>
+                    <div>
+                        <div class="label">Monitored items</div>
+                        <div class="value">@(_dashboard?.MonitoredItemCount.ToString() ?? "0")</div>
+                    </div>
+                </div>
+
+                <MudSpacer />
+
+                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Link">
+                    Connect
+                </MudButton>
+                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Outlined.LinkOff">
+                    Disconnect
+                </MudButton>
+                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Outlined.PlayArrow">
+                    Start
+                </MudButton>
+                <MudButton Disabled="false" Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Stop">
+                    Stop
+                </MudButton>
+            </MudPaper>
+
+            <MudGrid Spacing="4" Class="my-0">
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Connection State"
+                                Value="@(_dashboard?.Status ?? "Unknown")"
+                                Sub="@($"Last error: {_dashboard?.LastError ?? "-"}")"
+                                Accent="@StatusAccent" />
+                </MudItem>
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Session"
+                                Value="@(_dashboard?.SessionStatus ?? "-")"
+                                Sub="Connection state"
+                                Accent="@SessionAccent" />
+                </MudItem>
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Monitoring"
+                                Value="@(_dashboard?.MonitoringStatus ?? "-")"
+                                Sub="@($"Items: {_dashboard?.MonitoredItemCount ?? 0}")"
+                                Accent="@MonitoringAccent" />
+                </MudItem>
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Subscriptions"
+                                Value="@($"{_dashboard?.SubscriptionCount ?? 0} active")"
+                                Sub="Configured profiles"
+                                Accent="blue" />
+                </MudItem>
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Notification Queue"
+                                Value="@($"{_snapshot.NotificationQueueLength} items")"
+                                Sub="Live backlog"
+                                Accent="amber" />
+                </MudItem>
+                <MudItem xs="12" sm="6" lg="2">
+                    <StatusCard Title="Write Queue"
+                                Value="@($"{_snapshot.WriteQueueLength} items")"
+                                Sub="Persistence backlog"
+                                Accent="amber" />
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Class="metric-strip mt-5" Elevation="0">
+                <MetricBlock Icon="@Icons.Material.Outlined.SouthWest"
+                             Title="Received"
+                             Total="@_snapshot.ReceivedTotal"
+                             Rate="@_snapshot.ReceivedPerSecond"
+                             Accent="blue" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.Settings"
+                             Title="Processed"
+                             Total="@_snapshot.ProcessedTotal"
+                             Rate="@_snapshot.ProcessedPerSecond"
+                             Accent="purple" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.Storage"
+                             Title="Written"
+                             Total="@_snapshot.WrittenTotal"
+                             Rate="@_snapshot.WrittenPerSecond"
+                             Accent="green" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.Close"
+                             Title="Dropped"
+                             Total="@_snapshot.DroppedTotal"
+                             Rate="@DropPercent"
+                             Suffix="%"
+                             Accent="red" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.WarningAmber"
+                             Title="Failed"
+                             Total="@_snapshot.FailedTotal"
+                             Rate="0"
+                             Accent="red" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.Speed"
+                             Title="Utilization"
+                             Total="0"
+                             Rate="@WritingUtilization"
+                             Suffix=""
+                             Accent="@(WritingUtilization < 100 ? "red" : "green")" />
+            </MudPaper>
+
+            <MudGrid Spacing="4" Class="mt-1">
+                <MudItem xs="12" lg="7" Style="display:flex !important; align-items:stretch;">
+                    <MudPaper Class="panel chart-panel" Style="width:100%; flex:1;" Elevation="0">
+                        <PanelTitle Title="Event rate" Subtitle="Received/s vs Processed/s vs Written/s" />
+                        <SvgMultiLineChart Height="260"
+                                           Series="@EventRateSeries"
+                                           Timestamps="@_sampleTimes"
+                                           MaxValue="@EventRateMax"
+                                           Unit="events/s" />
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="5" Style="display:flex !important; align-items:stretch;">
+                    <MudPaper Class="panel chart-panel" Style="width:100%; flex:1;" Elevation="0">
+                        <PanelTitle Title="Queue length" Subtitle="Notification queue and write queue backlog" />
+                        <SvgMultiLineChart Height="260"
+                                           Series="@QueueSeries"
+                                           Timestamps="@_sampleTimes"
+                                           MaxValue="@QueueMax"
+                                           Unit="items" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Spacing="4" Class="mt-1">
+                <MudItem xs="12" lg="6" Style="display:flex !important; align-items:stretch;">
+                    <MudPaper Class="panel fill-panel" Style="width:100%; flex:1;" Elevation="0">
+                        <PanelTitle Title="Latency" Subtitle="Processing and end-to-end latency in milliseconds" />
+                        
+                        <MudGrid Spacing="2" Class="mb-4">
+                            <MudItem xs="12" sm="6" lg="4">
+                                <StatusCard Title="Processing"
+                                            Value="@($"{_snapshot.ProcessingLatencyMs:F1} ms")"
+                                            Accent="blue" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6" lg="4">
+                                <StatusCard Title="End-to-end"
+                                            Value="@($"{_snapshot.EndToEndLatencyMs:F1} ms")"
+                                            Accent="amber" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6" lg="4">
+                                <StatusCard Title="Max observed"
+                                            Value="@($"{_snapshot.MaxLatencyMs:F1} ms")"
+                                            Accent="red" />
+                            </MudItem>
+                        </MudGrid>
+
+                        
+                        <SvgMultiLineChart Height="170"
+                                           Series="@LatencySeries"
+                                           Timestamps="@_sampleTimes"
+                                           MaxValue="@LatencyMax"
+                                           Unit="ms" />
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" lg="6" Style="display:flex !important; align-items:stretch;">
+                    <MudPaper Class="panel fill-panel" Style="width:100%; flex:1;" Elevation="0">
+                        <PanelTitle Title="Utilization"
+                                    Subtitle="Processing and writing throughput relative to received events" />
+
+                        <MudGrid Spacing="2" Class="mb-4">
+                            <MudItem xs="12" sm="6">
+                                <StatusCard Title="Processing utilization"
+                                            Value="@($"{ProcessingUtilization:F1} %")"
+                                            Accent="purple" />
+                            </MudItem>
+
+                            <MudItem xs="12" sm="6">
+                                <StatusCard Title="Writing utilization"
+                                            Value="@($"{WritingUtilization:F1} %")"
+                                            Accent="green" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <SvgMultiLineChart Height="220"
+                                           Series="@UtilizationSeries"
+                                           Timestamps="@_sampleTimes"
+                                           MaxValue="100"
+                                           Unit="%" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+        </MudItem>
+    </MudGrid>
+</MudContainer>

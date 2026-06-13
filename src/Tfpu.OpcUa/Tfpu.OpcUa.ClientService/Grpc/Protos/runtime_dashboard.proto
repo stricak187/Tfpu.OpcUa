@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option csharp_namespace = "Tfpu.OpcUa.Contracts.Grpc";
+
+package tfpu.opcua;
+
+service RuntimeDashboard {
+  rpc GetDashboardSnapshot (DashboardSnapshotRequest) returns (DashboardSnapshotReply);
+}
+
+message DashboardSnapshotRequest {
+}
+
+message DashboardSnapshotReply {
+  string endpoint_url = 1;
+  string status = 2;
+  string session_status = 3;
+  string monitoring_status = 4;
+  string started_at = 5;
+  string uptime = 6;
+  string last_error = 7;
+
+  int32 subscription_count = 8;
+  int32 monitored_item_count = 9;
+
+  int64 received_total = 10;
+  int64 processed_total = 11;
+  int64 written_total = 12;
+  int64 dropped_total = 13;
+  int64 failed_total = 14;
+
+  double received_per_second = 15;
+  double processed_per_second = 16;
+  double written_per_second = 17;
+
+  int32 notification_queue_length = 18;
+  int32 write_queue_length = 19;
+
+  double processing_latency_ms = 20;
+  double end_to_end_latency_ms = 21;
+  double max_latency_ms = 22;
+
+  double lambda = 23;
+  double mu = 24;
+  double rho = 25;
+  bool is_overloaded = 26;
+}

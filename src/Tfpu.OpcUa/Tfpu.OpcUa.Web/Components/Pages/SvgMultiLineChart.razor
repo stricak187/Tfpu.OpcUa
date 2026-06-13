@@ -1,0 +1,72 @@
+﻿@using System.Globalization
+
+<div class="chart-container">
+    <svg class="svg-chart"
+         style="width:100%; height:calc(100% - 70px); min-height:260px; display:block;"
+         viewBox="0 0 900 @Height"
+         preserveAspectRatio="none">
+
+        @{
+            const double left = 72;
+            const double right = 880;
+            const double top = 18;
+            var bottom = Height - 38.0;
+        }
+
+        @* Y scale *@
+        @for (var i = 0; i <= 4; i++)
+        {
+            var y = top + i * ((bottom - top) / 4.0);
+            var value = MaxValue * (4 - i) / 4.0;
+
+            <line x1="@ToInv(left)"
+                  y1="@ToInv(y)"
+                  x2="@ToInv(right)"
+                  y2="@ToInv(y)"
+                  class="grid-line" />
+
+            @SvgLabel(left - 10, y + 4, "end", FormatValue(value))
+        }
+
+        @if (Timestamps.Count > 0)
+        {
+            var indices = GetTimeLabelIndices(Timestamps.Count);
+
+            @foreach (var index in indices)
+            {
+                var x = Timestamps.Count == 1
+                    ? left
+                    : left + index * ((right - left) / (Timestamps.Count - 1));
+
+                @SvgLabel(
+                    x,
+                    bottom + 22,
+                    GetAnchor(index, Timestamps.Count),
+                    Timestamps[index].ToString("HH:mm:ss"))
+            }
+        }
+
+        @foreach (var series in Series)
+        {
+            <polyline points="@BuildPolyline(series.Values, MaxValue, Height)"
+                      fill="none"
+                      stroke="@series.Color"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="chart-line" />
+        }
+    </svg>
+
+    <div class="chart-footer">
+        <div class="chart-legend">
+            @foreach (var series in Series)
+            {
+                <span>
+                    <i style="@($"background:{series.Color}")"></i>
+                    @series.Name
+                </span>
+            }
+        </div>
+    </div>
+</div>

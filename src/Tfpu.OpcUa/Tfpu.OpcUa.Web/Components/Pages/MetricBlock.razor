@@ -1,0 +1,20 @@
+<div class="metric-block">
+    <div class="metric-icon @Accent">
+        <MudIcon Icon="@Icon" Size="Size.Small" />
+    </div>
+
+    <div>
+        <div class="metric-title">@Title</div>
+
+        @if (Total is not null)
+        {
+            <div class="metric-total">@Total.Value.ToString("N0") total</div>
+        }
+        else
+        {
+            <div class="metric-total">live value</div>
+        }
+
+        <div class="metric-rate">@Rate.ToString("F1") @Suffix</div>
+    </div>
+</div>
