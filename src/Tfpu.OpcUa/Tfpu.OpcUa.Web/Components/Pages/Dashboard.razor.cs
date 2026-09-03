@@ -7,6 +7,21 @@ namespace Tfpu.OpcUa.Web.Components.Pages;
 public partial class Dashboard : ComponentBase
 {
     private DashboardSnapshotReply? _dashboard;
+
+    private bool _commandInProgress;
+    private bool IsConnected => _dashboard?.SessionStatus == "Connected";
+    private bool IsMonitoringActive => _dashboard?.MonitoringStatus == "Active";
+    private bool IsPubSubRunning => _dashboard?.PubSubRunning == true;
+    private bool CanEnableMonitoring => !_commandInProgress && IsConnected && !IsMonitoringActive;
+    private bool CanDisableMonitoring => !_commandInProgress && IsMonitoringActive;
+    private bool CanStartPubSub => !_commandInProgress && !IsPubSubRunning;
+    private bool CanStopPubSub => !_commandInProgress && IsPubSubRunning;
+
+    private string PubSubUrl => _dashboard?.PubSubUrl ?? "-";
+    private string PubSubTransport => _dashboard?.PubSubTransport ?? "-";
+    private int PubSubDataSetCount => _dashboard?.PubSubDataSetCount ?? 0;
+    private int PubSubNodeCount => _dashboard?.PubSubNodeCount ?? 0;
+
     private RuntimeSnapshot _snapshot = new();
 
     private readonly List<DateTime> _sampleTimes = [];
@@ -86,7 +101,7 @@ public partial class Dashboard : ComponentBase
     private IReadOnlyList<ChartSeriesModel> LatencySeries =>
     [
         new("Processing latency", "#b077ff", _processingLatency),
-        new("End-to-end latency", "#f4c430", _endToEndLatency)
+        new("Database write latency", "#f4c430", _endToEndLatency)
     ];
 
     private IReadOnlyList<ChartSeriesModel> UtilizationSeries =>
@@ -156,7 +171,12 @@ public partial class Dashboard : ComponentBase
 
                 ProcessingLatencyMs = reply.ProcessingLatencyMs,
                 EndToEndLatencyMs = reply.EndToEndLatencyMs,
-                MaxLatencyMs = reply.MaxLatencyMs
+                MaxLatencyMs = reply.MaxLatencyMs,
+
+                Lambda = reply.Lambda,
+                Mu = reply.Mu,
+                Rho = reply.Rho,
+                IsOverloaded = reply.IsOverloaded
             };
 
             Push(_sampleTimes, DateTime.Now, 48);
@@ -197,6 +217,30 @@ public partial class Dashboard : ComponentBase
         if (list.Count > max)
         {
             list.RemoveAt(0);
+        }
+    }
+
+    private async Task ExecuteMonitoringCommandAsync(Func<Grpc.Core.AsyncUnaryCall<RuntimeCommandReply>> command)
+    {
+        _commandInProgress = true;
+
+        try
+        {
+            var reply = await command().ResponseAsync;
+
+            _loadError = reply.IsSuccess
+                ? null
+                : reply.Message;
+
+            await LoadDashboardSnapshotAsync();
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+        }
+        finally
+        {
+            _commandInProgress = false;
         }
     }
 

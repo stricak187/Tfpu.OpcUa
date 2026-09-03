@@ -105,18 +105,37 @@ body {
 }
 
 .status-dot {
-    display: inline-block;
+    display: inline-flex;
+    gap: 0.8rem;
+    align-items: center;
     width: 11px;
     height: 11px;
     border-radius: 50%;
     background: #8896a8;
+    font-size: 0.875rem;
+    margin-right: 8px;
 }
 
-    .status-dot.ok {
-        background: #63c36b;
-        box-shadow: 0 0 14px rgba(99,195,107,.55);
-    }
+.status-text {
+    color: rgb(241, 246, 251) !important;
+}
 
+.status-dot.ok {
+    background: #63c36b;
+    box-shadow: 0 0 14px rgba(99,195,107,.55);
+}
+
+.command-bar-header {
+    width: 100%;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.command-bar-title {
+    font-weight: 800 !important;
+    font-size: 1.3rem;
+    color: rgb(241, 246, 251);
+}
 .header {
     height: 58px;
     display: flex;
@@ -153,8 +172,7 @@ body {
     display: flex;
     align-items: center;
     gap: 18px;
-    padding: 12px 18px;
-    background: rgba(15, 24, 34, 0.88) !important;
+    padding: 16px;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     color: #e8edf4;
@@ -180,8 +198,7 @@ body {
 .status-card,
 .panel,
 .metric-strip {
-    background: rgba(17, 27, 38, 0.86) !important;
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(17, 27, 38, 0.65) !important;
     border-radius: 16px;
     color: #e8edf4;
 }
@@ -434,6 +451,39 @@ body {
     color: rgb(179 164 164 / 60%) !important;
 }
 
+.command-bar,
+.status-card,
+.metric-strip,
+.fill-panel,
+.chart-panel {
+    background: rgba(118, 129, 141, 0.2) !important;
+    border-radius: 16px !important;
+    border: 0px !important;
+}
+
+.mud-button-filled.mud-button-filled-success,
+.mud-button-filled.mud-button-filled-error {
+    border-radius: 24px !important;
+}
+
+.publisher-status::before {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.45rem;
+    border-radius: 50%;
+    background: #7b8798;
+    content: "";
+}
+
+.publisher-status.running::before {
+    background: #3fc47e;
+}
+
+.publisher-status.stopped::before {
+    background: #7b8798;
+}
+
 @media (max-width: 1200px) {
     .sidebar {
         display: none;
@@ -467,5 +517,10 @@ body {
     .mm1-grid,
     .latency-grid {
         grid-template-columns: 1fr;
+    }
+
+    .mud-paper {
+        border-radius: 16px !important;
+        border: 0px;
     }
 }

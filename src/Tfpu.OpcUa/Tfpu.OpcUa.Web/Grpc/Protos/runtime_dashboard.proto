@@ -6,6 +6,10 @@ package tfpu.opcua;
 
 service RuntimeDashboard {
   rpc GetDashboardSnapshot (DashboardSnapshotRequest) returns (DashboardSnapshotReply);
+  rpc EnableOpcUaPublishing (RuntimeCommandRequest) returns (RuntimeCommandReply);
+  rpc DisableOpcUaPublishing (RuntimeCommandRequest) returns (RuntimeCommandReply);
+  rpc StartPubSub (RuntimeCommandRequest) returns (RuntimeCommandReply);
+  rpc StopPubSub (RuntimeCommandRequest) returns (RuntimeCommandReply);
 }
 
 message DashboardSnapshotRequest {
@@ -44,4 +48,19 @@ message DashboardSnapshotReply {
   double mu = 24;
   double rho = 25;
   bool is_overloaded = 26;
+
+  bool pub_sub_running = 27;
+  int32 pub_sub_node_count = 28;
+  int32 pub_sub_data_set_count = 29;
+  string pub_sub_transport = 30;
+  string pub_sub_url = 31;
+}
+
+
+message RuntimeCommandRequest {
+}
+
+message RuntimeCommandReply {
+  bool is_success = 1;
+  string message = 2;
 }

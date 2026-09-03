@@ -1,7 +1,7 @@
 ﻿using Opc.Ua;
 using System.Data;
 
-namespace Tfpu.OpcUa.ClientService;
+namespace Tfpu.OpcUa.SubscriberDemo;
 
 public static class SqlDbTypeExtensions
 {

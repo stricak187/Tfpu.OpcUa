@@ -15,14 +15,11 @@
                 <div>
                     <div class="page-title">Dashboard</div>
                     <div class="page-subtitle">
-                        Live OPC UA client telemetry, event throughput, queue health and M/M/1 processing model.
+                        Live OPC UA client telemetry, event throughput and queue health.
                     </div>
                 </div>
 
                 <div class="header-status">
-                    <span>Status:</span>
-                    <span class="status-dot @RuntimeDotClass"></span>
-                    <strong>@(_dashboard?.Status ?? "Unknown")</strong>
                     <span class="uptime">Uptime: @(_dashboard?.Uptime ?? "-")</span>
                 </div>
             </div>
@@ -34,43 +31,125 @@
                 </MudAlert>
             }
 
-            <MudPaper Class="command-bar" Elevation="0">
-                <div class="endpoint-block">
-                    <div class="label">Endpoint</div>
-                    <div class="value">@EndpointUrl</div>
-                </div>
+            <MudGrid Row="true" Spacing="4">
+                <MudItem xs="7">
+                    <MudPaper Class="command-bar" Elevation="0">
+                        <MudStack Row="false" style="width: 100%;">
+                            <MudStack Row="true"
+                                      AlignItems="AlignItems.Center"
+                                      Justify="Justify.SpaceBetween"
+                                      Class="command-bar-header">
 
-                <div class="quick-facts">
-                    <div>
-                        <div class="label">Session</div>
-                        <div class="value">@(_dashboard?.SessionStatus ?? "-")</div>
-                    </div>
-                    <div>
-                        <div class="label">Subscriptions</div>
-                        <div class="value">@(_dashboard?.SubscriptionCount.ToString() ?? "0")</div>
-                    </div>
-                    <div>
-                        <div class="label">Monitored items</div>
-                        <div class="value">@(_dashboard?.MonitoredItemCount.ToString() ?? "0")</div>
-                    </div>
-                </div>
+                                <div class="command-bar-title">Client/Server monitoring</div>
 
-                <MudSpacer />
+                                <div class="inline-status">
+                                    <span class="status-dot @RuntimeDotClass"></span>
+                                    <span class="status-text">@(_dashboard?.MonitoringStatus ?? "Unknown")</span>
+                                </div>
+                            </MudStack>
 
-                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Link">
-                    Connect
-                </MudButton>
-                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Outlined.LinkOff">
-                    Disconnect
-                </MudButton>
-                <MudButton Disabled="false" Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Outlined.PlayArrow">
-                    Start
-                </MudButton>
-                <MudButton Disabled="false" Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Stop">
-                    Stop
-                </MudButton>
-            </MudPaper>
+                            <div class="quick-facts">
+                                <div>
+                                    <div class="label">Endpoint</div>
+                                    <div class="value">@EndpointUrl</div>
+                                </div>
+                                <div>
+                                    <div class="label">Session</div>
+                                    <div class="value">@(_dashboard?.SessionStatus ?? "-")</div>
+                                </div>
+                                <div>
+                                    <div class="label">Subscriptions</div>
+                                    <div class="value">@(_dashboard?.SubscriptionCount.ToString() ?? "0")</div>
+                                </div>
+                                <div>
+                                    <div class="label">Monitored items</div>
+                                    <div class="value">@(_dashboard?.MonitoredItemCount.ToString() ?? "0")</div>
+                                </div>
+                                                                
+                                @if (_dashboard is not null)
+                                {
+                                    <MudSpacer />
+                                    @if (IsMonitoringActive)
+                                    {
+                                        <MudButton OnClick="@(() => ExecuteMonitoringCommandAsync(() => DashboardClient.DisableOpcUaPublishingAsync(new RuntimeCommandRequest())))"
+                                                   Disabled="@_commandInProgress"
+                                                   Variant="Variant.Filled"
+                                                   Color="Color.Error">
+                                            Disable
+                                        </MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton OnClick="@(() => ExecuteMonitoringCommandAsync(() => DashboardClient.EnableOpcUaPublishingAsync(new RuntimeCommandRequest())))"
+                                                   Disabled="@(_commandInProgress || !IsConnected)"
+                                                   Variant="Variant.Filled"
+                                                   Color="Color.Success">
+                                            Enable
+                                        </MudButton>
+                                    }
+                                }
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                
+                <MudItem xs="5">
+                    <MudPaper Class="command-bar" Elevation="0">
+                        <MudStack Row="false" style="width: 100%;">
+                            <MudStack Row="true"
+                                      AlignItems="AlignItems.Center"
+                                      Justify="Justify.SpaceBetween"
+                                      Class="command-bar-header">
+                                <div class="command-bar-title">PubSub Publishing</div>
+                            </MudStack>
 
+                            <div class="quick-facts">
+                                <div>
+                                    <div class="label">Publisher URL</div>
+                                    <div class="value">@PubSubUrl</div>
+                                </div>
+                                <div>
+                                    <div class="label">Transport</div>
+                                    <div class="value">@(_dashboard?.PubSubTransport ?? "-")</div>
+                                </div>
+                                <div>
+                                    <div class="label">DataSet</div>
+                                    <div class="value">@(_dashboard?.PubSubDataSetCount.ToString() ?? "0")</div>
+                                </div>
+                                <div>
+                                    <div class="label">Nodes</div>
+                                    <div class="value">@(_dashboard?.PubSubNodeCount.ToString() ?? "0")</div>
+                                </div>
+
+                                @if (_dashboard is not null)
+                                {
+                                    <MudSpacer />
+                                    @if (IsPubSubRunning)
+                                    {
+                                        <MudButton OnClick="@(() => ExecuteMonitoringCommandAsync(() => DashboardClient.StopPubSubAsync(new RuntimeCommandRequest())))"
+                                                   Disabled="@_commandInProgress"
+                                                   Variant="Variant.Filled"
+                                                   Color="Color.Error">
+                                            Stop
+                                        </MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton OnClick="@(() => ExecuteMonitoringCommandAsync(() => DashboardClient.StartPubSubAsync(new RuntimeCommandRequest())))"
+                                                   Disabled="@_commandInProgress"
+                                                   Variant="Variant.Filled"
+                                                   Color="Color.Success">
+                                            Start
+                                        </MudButton>
+                                    }
+                                }
+                            </div>
+
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            
             <MudGrid Spacing="4" Class="my-0">
                 <MudItem xs="12" sm="6" lg="2">
                     <StatusCard Title="Connection State"
@@ -123,18 +202,18 @@
                              Rate="@_snapshot.ProcessedPerSecond"
                              Accent="purple" />
 
-                <MetricBlock Icon="@Icons.Material.Outlined.Storage"
-                             Title="Written"
-                             Total="@_snapshot.WrittenTotal"
-                             Rate="@_snapshot.WrittenPerSecond"
-                             Accent="green" />
-
                 <MetricBlock Icon="@Icons.Material.Outlined.Close"
                              Title="Dropped"
                              Total="@_snapshot.DroppedTotal"
                              Rate="@DropPercent"
                              Suffix="%"
                              Accent="red" />
+
+                <MetricBlock Icon="@Icons.Material.Outlined.Storage"
+                             Title="Written"
+                             Total="@_snapshot.WrittenTotal"
+                             Rate="@_snapshot.WrittenPerSecond"
+                             Accent="green" />
 
                 <MetricBlock Icon="@Icons.Material.Outlined.WarningAmber"
                              Title="Failed"
@@ -215,13 +294,13 @@
 
                         <MudGrid Spacing="2" Class="mb-4">
                             <MudItem xs="12" sm="6">
-                                <StatusCard Title="Processing utilization"
+                                <StatusCard Title="Processing throughput ratio"
                                             Value="@($"{ProcessingUtilization:F1} %")"
                                             Accent="purple" />
                             </MudItem>
 
                             <MudItem xs="12" sm="6">
-                                <StatusCard Title="Writing utilization"
+                                <StatusCard Title="Writing throughput ratio"
                                             Value="@($"{WritingUtilization:F1} %")"
                                             Accent="green" />
                             </MudItem>

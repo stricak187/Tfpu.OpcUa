@@ -19,13 +19,21 @@ public class ClientApplicationOptions
     public required ServerOptions Server { get; set; }
 
     [Required]
+    [ValidateEnumeratedItems]
     public List<MonitoringProfileOptions> MonitoringProfiles { get; init; } = [];
 
     [Required]
+    [ValidateEnumeratedItems]
     public List<PlcOptions> Plcs { get; init; } = [];
 
     [Required]
     public string DatabaseConnection { get; init; } = string.Empty;
+
+    [Required]
+    public string PublisherUrl { get; init; } = string.Empty;
+
+    [Required]
+    public string NetworkInterface { get; init; } = string.Empty;
 }
 
 // Server
@@ -77,6 +85,7 @@ public class PlcOptions
     public int MaxMonitoredItemsPerSubscription { get; init; }
 
     [Required]
+    [ValidateEnumeratedItems]
     public List<NodeOptions> Nodes { get; init; } = [];
 }
 

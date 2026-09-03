@@ -9,6 +9,7 @@ namespace Tfpu.OpcUa.ClientService.Services;
 
 public class WritingService
 {
+    private readonly ILogger<WritingService> _logger;
     private readonly ClientApplicationOptions _clientApplicationOptions;
     private readonly ChannelReader<SqlCommandBulk> _commandChannelReader;
 
@@ -19,14 +20,17 @@ public class WritingService
     // Metrics
     private long _writtenTotal;
     private long _failedTotal;
+    private long _droppedTotal;
     private int _writeQueueLength;
     private double _lastWriteLatencyMs;
     private readonly object _metricsLock = new();
 
     public WritingService(
+        ILogger<WritingService> logger,
         IOptions<ClientApplicationOptions> clientApplicationOptions,
         ChannelReader<SqlCommandBulk> commandChannelReader)
     {
+        _logger = logger;
         _clientApplicationOptions = clientApplicationOptions.Value;
         _commandChannelReader = commandChannelReader;
     }
@@ -71,7 +75,7 @@ public class WritingService
                     }
                     catch (Exception ex)
                     {
-                        //log err disposal
+                        _logger.LogError(ex, "Error occurred while disposing the database connection.");
                     }
                 });
 
@@ -97,18 +101,20 @@ public class WritingService
 
                 var writeStartedAt = DateTime.UtcNow;
 
-                if (connection is null || connection.State == ConnectionState.Closed)
+                if (connection is null || connection.State != ConnectionState.Open)
                 {
                     _connections[workerId] = TryConnect(_clientApplicationOptions.DatabaseConnection, 15)!;
                     connection = _connections[workerId];
 
                     if (connection is null)
                     {
+                        _logger.LogError("Failed to reconnect to the database after multiple attempts.");
+                        Interlocked.Add(ref _droppedTotal, sqlCommandBulk.SqlCommands.Count);
                         continue;
                     }
                 }
 
-                var transaction = connection.BeginTransaction();
+                using var transaction = connection.BeginTransaction();
                 try
                 {
                     foreach (var sqlCommand in sqlCommandBulk.SqlCommands)
@@ -135,11 +141,11 @@ public class WritingService
                     }
                     catch
                     {
-                        // log rollback err
+                        _logger.LogError("Error occurred while rolling back the database transaction.");
                     }
 
                     Interlocked.Add(ref _failedTotal, sqlCommandBulk.SqlCommands.Count);
-                    // log err
+                    _logger.LogError(ex, "Error occurred while writing to the database.");
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -148,7 +154,7 @@ public class WritingService
             }
             catch (Exception ex)
             {
-                // log err
+                _logger.LogError(ex, "An unexpected error occurred.");
             }
         }
     }
@@ -165,6 +171,7 @@ public class WritingService
         return new WritingSnapshot(
             WrittenTotal: Interlocked.Read(ref _writtenTotal),
             FailedTotal: Interlocked.Read(ref _failedTotal),
+            DroppedTotal: Interlocked.Read(ref _droppedTotal),
             WriteQueueLength: Volatile.Read(ref _writeQueueLength),
             LastWriteLatencyMs: latency);
     }
@@ -184,7 +191,7 @@ public class WritingService
             }
             catch
             {
-                // log dbg
+                _logger.LogDebug("Failed to connect to the database.");
             }
         }
 

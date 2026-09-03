@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Serilog;
 using Tfpu.OpcUa.ClientService;
 using Tfpu.OpcUa.ClientService.Grpc;
 using Tfpu.OpcUa.ClientService.Services;
@@ -6,6 +7,13 @@ using Tfpu.OpcUa.ClientService.Services;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddHostedService<ClientService>();
+
+// Logging
+builder.Services.AddSerilog(
+    new LoggerConfiguration()
+        .ReadFrom.Configuration(builder.Configuration)
+        .Enrich.FromLogContext()
+        .CreateLogger());
 
 // Options
 builder.Services.AddOptions<ClientApplicationOptions>()
@@ -15,24 +23,22 @@ builder.Services.AddOptions<ClientApplicationOptions>()
 
 // Channels
 builder.Services.AddSingleton(_ =>
-    Channel.CreateBounded<CommunicationService.DataChangeEvent>(
-        new BoundedChannelOptions(100_000)
+    Channel.CreateUnbounded<CommunicationService.DataChangeEvent>(
+        new UnboundedChannelOptions()
         {
             SingleReader = false,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.DropWrite
+            SingleWriter = false
         }));
 
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<CommunicationService.DataChangeEvent>>().Writer);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<CommunicationService.DataChangeEvent>>().Reader);
 
 builder.Services.AddSingleton(_ =>
-    Channel.CreateBounded<MessageProcessingService.SqlCommandBulk>(
-        new BoundedChannelOptions(10_000)
+    Channel.CreateUnbounded<MessageProcessingService.SqlCommandBulk>(
+        new UnboundedChannelOptions()
         {
-            SingleReader = true,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.Wait
+            SingleReader = false,
+            SingleWriter = false
         }));
 
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<MessageProcessingService.SqlCommandBulk>>().Writer);
@@ -46,9 +52,8 @@ builder.Services.AddSingleton<WritingService>();
 builder.Services.AddSingleton<DashboardSnapshotProvider>();
 builder.Services.AddSingleton<RuntimeDashboardGrpcService>();
 
-builder.Services.AddHostedService<ClientService>();
+builder.Services.AddSingleton<PublisherService>();
 
-//TEST
 builder.Services.AddHostedService<GrpcNamedPipeHostService>();
 
 var host = builder.Build();

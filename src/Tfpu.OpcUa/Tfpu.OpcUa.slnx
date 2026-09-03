@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="Tfpu.OpcUa.ClientService/Tfpu.OpcUa.ClientService.csproj" Id="d12241bc-490d-4525-8b5d-09e7b1cc59ee" />
+  <Project Path="Tfpu.OpcUa.SubscriberDemo/Tfpu.OpcUa.SubscriberDemo.csproj" Id="07610d95-dd8d-479f-aa0b-73fd5d110738" />
   <Project Path="Tfpu.OpcUa.Web/Tfpu.OpcUa.Web.csproj" Id="09a2c169-edf9-48a0-9e6d-2aa427a85019" />
 </Solution>

@@ -19,8 +19,14 @@ public class RuntimeSnapshot
     public double EndToEndLatencyMs { get; init; }
     public double MaxLatencyMs { get; init; }
 
-    public double Lambda => ReceivedPerSecond;
-    public double Mu => WrittenPerSecond;
-    public double Rho => Mu <= 0 ? 0 : Lambda / Mu;
-    public bool IsOverloaded => Rho > 1.0;
+    public double Lambda { get; init; }
+    public double Mu { get; init; }
+    public double Rho { get; init; }
+    public bool IsOverloaded { get; init; }
+
+    public bool IsRunning { get; set; }
+    public int NodeCount { get; set; }
+    public int DataSetCount { get; set; }
+    public string Transport { get; set; }
+    public string Url { get; set; }
 }

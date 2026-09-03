@@ -21,5 +21,12 @@ public sealed record ProcessingSnapshot(
 public sealed record WritingSnapshot(
     long WrittenTotal,
     long FailedTotal,
+    long DroppedTotal,
     int WriteQueueLength,
     double LastWriteLatencyMs);
+public sealed record PublisherSnapshot(
+    bool IsRunning,
+    int NodeCount,
+    int DataSetCount,
+    string Transport,
+    string Url);

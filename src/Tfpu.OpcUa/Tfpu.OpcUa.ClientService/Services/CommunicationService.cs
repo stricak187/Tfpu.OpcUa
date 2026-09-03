@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using Opc.Ua;
 using Opc.Ua.Client;
+using Serilog;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Data;
@@ -16,6 +17,7 @@ public class CommunicationService
 {
     private readonly ILogger<CommunicationService> _logger;
     private readonly ClientApplicationOptions _clientApplicationOptions;
+    private readonly PublisherService _publisherService;
     private readonly ApplicationConfiguration _applicationConfiguration;
     private readonly ITelemetryContext _telemetry;
     private readonly ChannelWriter<DataChangeEvent> _notificationChannelWriter;
@@ -38,16 +40,18 @@ public class CommunicationService
     public CommunicationService(
         ILogger<CommunicationService> logger,
         IOptions<ClientApplicationOptions> clientApplicationOptions,
+        PublisherService publisherService,
         ChannelWriter<DataChangeEvent> notificationChannelWriter,
         MessageProcessingService messageProcessingService)
     {
         _logger = logger;
         _clientApplicationOptions = clientApplicationOptions.Value;
+        _publisherService = publisherService;
         _applicationConfiguration = GetApplicationConfiguration().GetAwaiter().GetResult();
         _telemetry = DefaultTelemetry.Create(logging =>
         {
-            logging.AddConsole();
-            // TODO: Serilog sink to sqlite
+            logging.ClearProviders();
+            logging.AddSerilog(Log.Logger, dispose: false);
         });
         _notificationChannelWriter = notificationChannelWriter;
         _messageProcessingService = messageProcessingService;
@@ -84,6 +88,11 @@ public class CommunicationService
 
                     var monitoredItem = await CreateMonitoredItemAsync(session, profile, node, cancellationToken);
 
+                    if (monitoredItem == null)
+                    {
+                        continue;
+                    }
+
                     monitoredItem.Notification += OnMonitoredItemNotificationReceived;
                     subscription.AddItem(monitoredItem);
                 }
@@ -95,27 +104,80 @@ public class CommunicationService
         _monitoringConfigured = true;
     }
 
-    public async Task EnablePublishingAsync(CancellationToken cancellationToken)
+    public async Task UpdatePublishingAsync(bool enable, CancellationToken cancellationToken)
     {
         foreach (var session in _sessionLocks.Keys)
         {
             foreach (var subscription in session.Subscriptions)
             {
-                subscription.PublishingEnabled = true;
-                await subscription.SetPublishingModeAsync(true, cancellationToken);
+                subscription.PublishingEnabled = enable;
+                await subscription.SetPublishingModeAsync(enable, cancellationToken);
                 await subscription.ApplyChangesAsync(cancellationToken);
             }
         }
-        _publishingEnabled = true;
+        _publishingEnabled = enable;
+    }
+
+    public async Task CloseAllSessionsAsync(CancellationToken cancellationToken)
+    {
+        var sessions = _sessionLocks.Keys.ToList();
+
+        foreach (var session in sessions)
+        {
+            try
+            {
+                session.KeepAlive -= OnKeepAlive;
+                if (_reconnectHandlers.TryGetValue(session, out var reconnectHandler))
+                {
+                    reconnectHandler?.Dispose();
+                    _reconnectHandlers.Remove(session);
+                }
+
+                if (session.Connected)
+                {
+                    await session.CloseAsync(cancellationToken);
+                }
+
+                session.Dispose();
+
+                _logger.LogInformation("OPC UA session closed and disposed. SessionId: {SessionId}", session.SessionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while closing OPC UA session. SessionId: {SessionId}", session.SessionId);
+
+                try
+                {
+                    session.Dispose();
+                }
+                catch
+                {
+                    // Ignore dispose errors during shutdown.
+                }
+            }
+        }
+
+        foreach (var handler in _reconnectHandlers.Values)
+        {
+            handler?.Dispose();
+        }
+
+        _reconnectHandlers.Clear();
+        _sessionLocks.Clear();
+
+        _publishingEnabled = false;
+        _monitoringConfigured = false;
     }
 
     protected virtual void OnMonitoredItemNotificationReceived(MonitoredItem item, MonitoredItemNotificationEventArgs e)
     {
         if (e.NotificationValue is not MonitoredItemNotification changeNotification)
         {
-            // TODO: _logger.LogWarning("Unsupported notification type");
+            _logger.LogWarning("Unsupported notification type");
             return;
         }
+
+        _publisherService.PublishValue(item.StartNodeId, changeNotification.Value);
 
         var dataChangeEvent = new DataChangeEvent
         {
@@ -320,7 +382,6 @@ public class CommunicationService
             _sessionLocks.Remove(oldSession);
             _logger.LogInformation("Reconnected to OPC UA server, SessionId: {Id}", newSession.SessionId);
         }
-        _sessionLocks.Remove(oldSession);
         _sessionLocks[newSession] = sync;
     }
 
@@ -358,12 +419,13 @@ public class CommunicationService
         return true;
     }
 
-    private async Task<MonitoredItem> CreateMonitoredItemAsync(ISession session, MonitoringProfileOptions monitoringProfile, NodeOptions node, CancellationToken cancellationToken)
+    private async Task<MonitoredItem?> CreateMonitoredItemAsync(ISession session, MonitoringProfileOptions monitoringProfile, NodeOptions node, CancellationToken cancellationToken)
     {
         var nodeId = new NodeId(node.Address, node.NamespaceIndex);
-        if (validateNodes)
+        if (validateNodes && !await ValidateNodeReadability(session, node.Name, nodeId, cancellationToken))
         {
-            await ValidateNodeReadability(session, node.Name, nodeId, cancellationToken);
+            _logger.LogWarning("Node '{NodeName}' ({NodeId}) is not readable. Skipping monitoring.", node.Name, nodeId);
+            return null;
         }
 
         return new MonitoredItem(_telemetry)
@@ -383,7 +445,7 @@ public class CommunicationService
                     DeadbandType = (uint)DeadbandType.Absolute,
                     DeadbandValue = monitoringProfile.Deadband!.Value,
                 }
-                : new DataChangeFilter()
+                : null
         };
     }
 
